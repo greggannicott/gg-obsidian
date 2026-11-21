@@ -26,6 +26,7 @@ const PROJECT_NOTE_TYPES = [
 	"General Project Note",
 	"Agent Response",
 	"Analysis",
+	"Brainstorming Notes",
 	"Code Sample",
 	"Design Note",
 	"Log Sample",
@@ -213,7 +214,9 @@ function chooseProjectNoteType(app: App): Promise<ProjectNoteType | null> {
 				? "Prescriptive"
 				: noteType === "Analysis"
 					? "Descriptive"
-					: null,
+					: noteType === "Brainstorming Notes"
+						? "Exploratory"
+						: null,
 		groupings: [
 			{
 				id: "kind",
@@ -223,7 +226,7 @@ function chooseProjectNoteType(app: App): Promise<ProjectNoteType | null> {
 						(t) => t === "General Project Note",
 					);
 					const outcomes = items.filter(
-						(t) => t === "Design Note" || t === "Analysis",
+						(t) => t === "Design Note" || t === "Analysis" || t === "Brainstorming Notes",
 					);
 					const reference = items.filter(
 						(t) =>

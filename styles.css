@@ -528,6 +528,12 @@ If your plugin does not need CSS, delete this file.
 	opacity: 0.5;
 }
 
+/* An active action (e.g. a "Requires Thought" flag that is currently set)
+   is shown in the accent colour so its state is visible at a glance. */
+.conductor-triage-action--active {
+	color: var(--text-accent);
+}
+
 /* No hover backgrounds on links or action buttons; rows keep their solid
    background so the pane's background never shows through. */
 .conductor-triage-item:hover {

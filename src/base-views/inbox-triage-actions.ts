@@ -1,4 +1,4 @@
-import { App } from "obsidian";
+import { App, Notice } from "obsidian";
 
 import {
 	convertNoteToTask,
@@ -8,7 +8,8 @@ import {
 	createTaskFromNote,
 	isNoteTaskCreatable,
 } from "../commands/create-task-from-note";
-import { removeTag } from "../utilities";
+import { renameNote } from "../commands/rename-note";
+import { removeTag, toggleTag, fileHasTag } from "../utilities";
 import type { TriageAction } from "./triage-view";
 
 /**
@@ -22,6 +23,33 @@ export function getInboxTriageActions(app: App): TriageAction[] {
 			tooltip: "Remove #inbox tag",
 			menuTitle: "Remove #inbox Tag",
 			run: (target) => removeTag(app, target, "inbox"),
+		},
+		{
+			icon: "brain",
+			tooltip: (target) =>
+				fileHasTag(app, target, "requires-thought")
+					? "Remove #requires-thought tag"
+					: "Add #requires-thought tag",
+			menuTitle: (target) =>
+				fileHasTag(app, target, "requires-thought")
+					? "Remove #requires-thought Tag"
+					: "Add #requires-thought Tag",
+			active: (target) => fileHasTag(app, target, "requires-thought"),
+			run: async (target) => {
+				const wasSet = fileHasTag(app, target, "requires-thought");
+				await toggleTag(app, target, "requires-thought");
+				new Notice(
+					wasSet
+						? "Removed #requires-thought"
+						: "Added #requires-thought",
+				);
+			},
+		},
+		{
+			icon: "pencil",
+			tooltip: "Rename note",
+			menuTitle: "Rename Note",
+			run: (target) => renameNote(app, target),
 		},
 		{
 			icon: "circle-arrow-right",

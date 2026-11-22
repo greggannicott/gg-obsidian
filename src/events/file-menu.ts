@@ -389,12 +389,18 @@ export function createFileMenuHandler(app: App, linearBaseUrl?: string) {
 				item.setTitle("Triage").setIcon("inbox");
 				const submenu = (item as any).setSubmenu() as Menu;
 				for (const action of getInboxTriageActions(app)) {
+					const rawTitle = action.menuTitle ?? action.tooltip;
+					const title =
+						typeof rawTitle === "function"
+							? rawTitle(file)
+							: rawTitle;
 					submenu.addItem((subItem) => {
 						subItem
-							.setTitle(action.menuTitle ?? action.tooltip)
+							.setTitle(title)
 							.setIcon(action.icon)
 							.setDisabled(action.disabled?.(file) ?? false)
 							.setWarning(action.warning ?? false)
+							.setChecked(action.active?.(file) ?? false)
 							.onClick(() => {
 								void action.run(file);
 							});

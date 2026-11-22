@@ -15,11 +15,14 @@ import { showFileContextMenu } from "./file-context-menu";
 
 export interface TriageAction {
 	icon: IconName;
-	tooltip: string;
-	menuTitle?: string;
+	tooltip: string | ((file: TFile) => string);
+	menuTitle?: string | ((file: TFile) => string);
 	cls?: string;
 	warning?: boolean;
 	disabled?: (file: TFile) => boolean;
+	// When defined, marks the button as active (e.g. a tag is currently set)
+	// so the view and context menu can reflect the current state.
+	active?: (file: TFile) => boolean;
 	run: (file: TFile) => void | Promise<void>;
 }
 
@@ -141,9 +144,18 @@ export abstract class TriageView extends BasesView {
 					.join(" "),
 			});
 			setIcon(buttonEl, action.icon);
-			setTooltip(buttonEl, action.tooltip);
-			buttonEl.setAttribute("aria-label", action.tooltip);
+			const tooltipText =
+				typeof action.tooltip === "function"
+					? action.tooltip(file)
+					: action.tooltip;
+			setTooltip(buttonEl, tooltipText);
+			buttonEl.setAttribute("aria-label", tooltipText);
 			buttonEl.disabled = action.disabled?.(file) ?? false;
+			const isActive = action.active?.(file) ?? false;
+			if (isActive) {
+				buttonEl.classList.add("conductor-triage-action--active");
+			}
+			buttonEl.setAttribute("aria-pressed", String(isActive));
 			buttonEl.addEventListener("click", (evt) => {
 				evt.preventDefault();
 				evt.stopPropagation();

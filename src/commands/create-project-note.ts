@@ -1,5 +1,7 @@
 import { App, Editor, Notice, TFile } from "obsidian";
+import { showEpicSelectorSingle } from "src/choose-epic-modal";
 import { showProjectSelector } from "src/choose-project-modal";
+import { getEpicForActiveFile } from "src/epics";
 import { TextInputModal } from "src/text-input-modal";
 import {
 	Context,
@@ -51,9 +53,14 @@ export async function createProjectNote(
 	const editor = app.workspace.activeEditor?.editor;
 	const selectedText = options.selectedText ?? editor?.getSelection() ?? "";
 	const activeProject = getProjectForActiveFile(app);
+	const inferredEpic = getEpicForActiveFile(app);
 
 	const project = await chooseProject(app, activeProject);
 	if (!project) return null;
+
+	// Always ask, pre-filled from the active note; the picker has an explicit
+	// "No epic" row, so skipping doesn't depend on pressing Esc.
+	const epic = await showEpicSelectorSingle(app, inferredEpic);
 
 	const noteType = await chooseProjectNoteType(app);
 	if (!noteType) return null;
@@ -115,8 +122,11 @@ export async function createProjectNote(
 
 	await app.fileManager.processFrontMatter(note, (frontmatter) => {
 		frontmatter.categories = ["[[Project Note]]"];
-		frontmatter.type = `[[${noteType}]]`;
+		frontmatter.type = [`[[${noteType}]]`];
 		frontmatter.parents = [`[[${project.name}]]`];
+		if (epic) {
+			frontmatter.epic = [`[[${epic.name}]]`];
+		}
 	});
 
 	if (options.openCreated !== false) {

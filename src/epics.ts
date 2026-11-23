@@ -93,6 +93,16 @@ function getEpicFromLink(
 	return getEpicFromFile(app, target);
 }
 
+// The epic the active note is about, when it gives it away: either the epic
+// itself is open, or the note carries an `epic` link (tasks and project notes
+// both do).
+export function getEpicForActiveFile(app: App): Epic | null {
+	const activeFile = app.workspace.activeEditor?.file;
+	if (!activeFile) return null;
+	if (isNoteEpic(app, activeFile)) return getEpicFromFile(app, activeFile);
+	return getEpicFromFrontmatter(app, activeFile);
+}
+
 // Every epic in the vault, whether or not it is still running.
 export function getEpics(app: App): Epic[] {
 	return getFilesFromProjectsFolderWithCategory(app, EPIC_CATEGORY)

@@ -5,7 +5,12 @@
 
 export const PROJECT_NOTE_NAME_PREFIX = "Project Note - ";
 
-const KNOWN_PREFIXES = ["Project Note - ", "project-note - "];
+const KNOWN_PREFIXES = [
+	"Project Note - ",
+	"Project Notes - ",
+	"project-note - ",
+	"project-notes - ",
+];
 
 // Strips a leading known prefix (if present) and trims surrounding whitespace,
 // returning the bare note name. Safe to call on already-bare names.

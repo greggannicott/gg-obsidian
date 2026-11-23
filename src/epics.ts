@@ -2,6 +2,7 @@ import { App, TFile, parseFrontMatterStringArray } from "obsidian";
 import { Context, ProjectStatus } from "./projects";
 import {
 	getFilesFromProjectsFolderWithCategory,
+	getLinkTarget,
 	isFileCategory,
 } from "./utilities";
 
@@ -61,19 +62,26 @@ export function isNoteEpic(app: App, file: TFile): boolean {
 	return isFileCategory(app, file, EPIC_CATEGORY);
 }
 
-// The epic named by a note's `epic` frontmatter property. Tasks are the usual
-// carrier, but any note may hold the link.
-export function getEpicFromFrontmatter(
-	app: App,
-	file: TFile,
-): Epic | null {
+// Every epic linked from a note's `epic` frontmatter property. Tasks are the
+// usual carrier, but any note may hold the link.
+export function getEpicsFromFrontmatter(app: App, file: TFile): Epic[] {
 	const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
 	const links = parseFrontMatterStringArray(frontmatter, "epic") ?? [];
+	const epics: Epic[] = [];
+	const seen = new Set<string>();
 	for (const link of links) {
 		const epic = getEpicFromLink(app, link, file.path);
-		if (epic) return epic;
+		if (epic && !seen.has(epic.path)) {
+			seen.add(epic.path);
+			epics.push(epic);
+		}
 	}
-	return null;
+	return epics;
+}
+
+// The epic named by a note's `epic` frontmatter property, if any.
+export function getEpicFromFrontmatter(app: App, file: TFile): Epic | null {
+	return getEpicsFromFrontmatter(app, file)[0] ?? null;
 }
 
 // Resolves a frontmatter link to an epic note. Links to anything else are
@@ -83,14 +91,19 @@ function getEpicFromLink(
 	link: string,
 	sourcePath: string,
 ): Epic | null {
-	const name = link
-		.replace(/^\[\[|\]\]$/g, "")
-		.split("|")[0]
-		.trim();
+	const name = getLinkTarget(link);
 	if (!name) return null;
 	const target = app.metadataCache.getFirstLinkpathDest(name, sourcePath);
 	if (!target || !isNoteEpic(app, target)) return null;
 	return getEpicFromFile(app, target);
+}
+
+// Every epic a file is associated with: an epic note is its own epic, and any
+// other note contributes the epics linked from its frontmatter.
+export function getEpicsForFile(app: App, file: TFile): Epic[] {
+	return isNoteEpic(app, file)
+		? [getEpicFromFile(app, file)]
+		: getEpicsFromFrontmatter(app, file);
 }
 
 // The epic the active note is about, when it gives it away: either the epic
@@ -98,9 +111,7 @@ function getEpicFromLink(
 // both do).
 export function getEpicForActiveFile(app: App): Epic | null {
 	const activeFile = app.workspace.activeEditor?.file;
-	if (!activeFile) return null;
-	if (isNoteEpic(app, activeFile)) return getEpicFromFile(app, activeFile);
-	return getEpicFromFrontmatter(app, activeFile);
+	return activeFile ? getEpicsForFile(app, activeFile)[0] ?? null : null;
 }
 
 // Every epic in the vault, whether or not it is still running.

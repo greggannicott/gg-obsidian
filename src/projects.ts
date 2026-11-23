@@ -1,6 +1,11 @@
-import { App, TFile } from "obsidian";
+import { App, parseFrontMatterStringArray, TFile } from "obsidian";
 import { getTask } from "./tasks";
-import { Category, getCategory, getFilesFromProjectsFolderWithCategory } from "./utilities";
+import {
+	Category,
+	getCategory,
+	getFilesFromProjectsFolderWithCategory,
+	getLinkTarget,
+} from "./utilities";
 
 export type Project = {
 	name: string;
@@ -106,45 +111,46 @@ export function getProjectSearchFields(project: Project): string[] {
 	return fields.filter(Boolean);
 }
 
+// Every project a file is associated with, using the same detection as
+// getActiveProject: a project file is its own project, a task inherits its
+// parents, and any other note resolves its `parents` frontmatter links.
+export function getProjectsForFile(app: App, file: TFile): Project[] {
+	switch (getCategory(app, file)) {
+		case Category.Project:
+			return [getProjectFromFile(app, file)];
+		case Category.Task:
+			return getTask(app, file.path)?.parents ?? [];
+		default:
+			return getProjectsFromLinkedParents(app, file);
+	}
+}
+
 // The the project that is currently active.
 // A project is active if the focussed file is a project, or if a task belonging to the project.
 export function getActiveProject(app: App): Project | null {
 	const activeFile = app.workspace.activeEditor?.file;
-	let activeProject: Project | null = null;
-	if (activeFile) {
-		const category = getCategory(app, activeFile);
-		switch (category) {
-			case Category.Project:
-				activeProject = getProjectFromFile(app, activeFile);
-				break;
-			case Category.Task:
-				const task = getTask(app, activeFile.path);
-				if (task?.parents[0]) {
-					activeProject = task.parents[0];
-				}
-				break;
-			default:
-				// For file types that are not projects or tasks themselves
-				// (e.g. Project Notes), attempt to resolve the parent project
-				// from the file's `parents` frontmatter link.
-				activeProject = getProjectFromLinkedParent(app, activeFile);
-				break;
-		}
-	}
-	return activeProject;
+	return activeFile ? getProjectsForFile(app, activeFile)[0] ?? null : null;
 }
 
-function getProjectFromLinkedParent(app: App, file: TFile): Project | null {
-	const parent = app.metadataCache.getFileCache(file)?.frontmatter?.parents;
-	const link = Array.isArray(parent) ? parent[0] : parent;
-	if (typeof link !== "string") return null;
-	const linkedFile = app.metadataCache.getFirstLinkpathDest(
-		link.replace(/^\[\[|\]\]$/g, "").split("|")[0],
-		file.path,
-	);
-	return linkedFile && getCategory(app, linkedFile) === Category.Project
-		? getProjectFromFile(app, linkedFile)
-		: null;
+function getProjectsFromLinkedParents(app: App, file: TFile): Project[] {
+	const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+	const links = parseFrontMatterStringArray(frontmatter, "parents") ?? [];
+	const projects: Project[] = [];
+	const seen = new Set<string>();
+	for (const link of links) {
+		const name = getLinkTarget(link);
+		if (!name) continue;
+		const linkedFile = app.metadataCache.getFirstLinkpathDest(name, file.path);
+		if (!linkedFile || getCategory(app, linkedFile) !== Category.Project) {
+			continue;
+		}
+		const project = getProjectFromFile(app, linkedFile);
+		if (!seen.has(project.path)) {
+			seen.add(project.path);
+			projects.push(project);
+		}
+	}
+	return projects;
 }
 
 // Get the ticket ID for the active file: the task's jira-id if present,

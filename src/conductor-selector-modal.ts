@@ -58,7 +58,10 @@ export type ConductorSelectorOptions<T> = {
 	getCover?: (item: T) => string | null;
 	// Optional meta key/value pairs rendered beneath the title (labels may be
 	// omitted for bare values).
-	getMeta?: (item: T) => ConductorSelectorMeta[] | null;
+	getMeta?: (
+		item: T,
+		ctx?: { activeGrouping: string | null },
+	) => ConductorSelectorMeta[] | null;
 	// Optional single meta value rendered right-aligned on the title line
 	// (e.g. a rating shown as stars), independent of getMeta.
 	getTitleRightMeta?: (
@@ -622,7 +625,9 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 			});
 		}
 
-		const meta = this.options.getMeta?.(item.item);
+		const meta = this.options.getMeta?.(item.item, {
+			activeGrouping: this.getActiveGrouping()?.id ?? null,
+		});
 		if (meta && meta.length > 0) {
 			const metaEl = body.createDiv({ cls: "conductor-suggest-meta" });
 			meta.forEach((entry, index) => {

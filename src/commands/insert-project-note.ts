@@ -6,6 +6,8 @@ import {
 } from "src/editor-utils";
 import { createProjectNote } from "./create-project-note";
 import { showProjectNoteSelector } from "src/choose-project-note-modal";
+import { getAssociationsForFile } from "src/note-associations";
+import { stripProjectNotePrefix } from "src/project-note-naming";
 import { getNoteTitle } from "src/utilities";
 
 export const insertProjectNote = async (app: App): Promise<boolean> => {
@@ -21,7 +23,12 @@ export const insertProjectNote = async (app: App): Promise<boolean> => {
 		? { from: editor.getCursor("from"), to: editor.getCursor("to") }
 		: null;
 
-	const choice = await showProjectNoteSelector(app, { includeCreate: true });
+	const choice = await showProjectNoteSelector(app, {
+		includeCreate: true,
+		associations: activeView.file
+			? getAssociationsForFile(app, activeView.file)
+			: { projects: [], epics: [] },
+	});
 	if (!choice) return false;
 
 	let note: Awaited<ReturnType<typeof createProjectNote>>;
@@ -35,10 +42,7 @@ export const insertProjectNote = async (app: App): Promise<boolean> => {
 	}
 	if (!note) return false;
 
-	const noteTitle = getNoteTitle(app, note).replace(
-		/^(Project Note|project-note) - /i,
-		"",
-	);
+	const noteTitle = stripProjectNotePrefix(getNoteTitle(app, note));
 	const defaultDisplay = selectedText || noteTitle;
 	const prompt = await TextInputModal.show(app, {
 		title: "Text to display",

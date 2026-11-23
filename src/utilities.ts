@@ -192,6 +192,16 @@ export function getNoteTitle(app: App, file: TFile): string {
 		: file.basename;
 }
 
+// Target name/path from a frontmatter wikilink: strips the wrappers, display
+// text and heading anchor so the value can be resolved as a linkpath.
+export function getLinkTarget(link: string): string {
+	return link
+		.replace(/^\[\[|\]\]$/g, "")
+		.split("|")[0]
+		.split("#")[0]
+		.trim();
+}
+
 // Bare names from a frontmatter array field holding wikilinks or plain strings.
 // Wikilink wrappers (e.g. "[[The Velvet Underground]]") and display-text
 // suffixes (e.g. "[[X|Y]]" yields "X") are stripped, so either form resolves to

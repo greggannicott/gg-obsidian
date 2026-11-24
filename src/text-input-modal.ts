@@ -1,4 +1,5 @@
 import { App, Modal } from "obsidian";
+import { showModalBusy } from "./modal-busy";
 
 export type TextInputKeybinding = {
 	id: string;
@@ -23,6 +24,10 @@ export type TextInputModalConfiguration = {
 	// Optional formatter that derives a live preview string from the current
 	// input value, rendered beneath the input and updated as the user types.
 	preview?: (value: string) => string;
+	// When set, submitting runs this handler while the modal stays open behind
+	// a spinner. Return false to keep the prompt open for another attempt.
+	onSubmit?: (value: string, submitKeybinding: string) => Promise<boolean>;
+	busyMessage?: string;
 };
 
 type SubmitEvent = {
@@ -57,9 +62,14 @@ export class TextInputModal extends Modal {
 	private submitted = false;
 	private previewFn?: (value: string) => string;
 	private previewEl?: HTMLElement;
+	private readonly config: TextInputModalConfiguration;
+	private busy = false;
+	private closedWhileBusy = false;
+	private hideBusy: (() => void) | null = null;
 
 	constructor(app: App, config: TextInputModalConfiguration) {
 		super(app);
+		this.config = config;
 
 		this.keybindings =
 			config.keybindings ??
@@ -133,13 +143,40 @@ export class TextInputModal extends Modal {
 			for (const kb of this.keybindings) {
 				if (kb.check(keyEvent)) {
 					keyEvent.preventDefault();
-					this.submitted = true;
-					this.resolve({
-						value: this.input.value,
-						submitKeybinding: kb.id,
-						cancelled: false,
-					});
-					this.close();
+					if (this.busy) break;
+
+					const value = this.input.value;
+					const submitKeybinding = kb.id;
+
+					const onSubmit = this.config.onSubmit;
+					if (!onSubmit) {
+						this.submitted = true;
+						this.resolve({ value, submitKeybinding, cancelled: false });
+						this.close();
+						break;
+					}
+
+					this.setBusy(this.config.busyMessage ?? "Working…");
+					void onSubmit(value, submitKeybinding)
+						.then((ok) => {
+							if (ok !== false) {
+								this.submitted = true;
+								this.resolve({
+									value,
+									submitKeybinding,
+									cancelled: false,
+								});
+								this.close();
+								return;
+							}
+							this.setIdle();
+							if (this.closedWhileBusy) this.finishCancelled();
+						})
+						.catch((error) => {
+							console.error(error);
+							this.setIdle();
+							if (this.closedWhileBusy) this.finishCancelled();
+						});
 					break;
 				}
 			}
@@ -154,15 +191,41 @@ export class TextInputModal extends Modal {
 
 	onClose(): void {
 		// Resolve even when closed without submitting (e.g. Esc) so
-		// awaited callers are not left hanging.
-		if (!this.submitted) {
-			this.resolve({
-				value: "",
-				submitKeybinding: "cancel",
-				cancelled: true,
-			});
+		// awaited callers are not left hanging. An async submit owns the
+		// resolver while it is running, so don't race it with a cancel.
+		if (this.busy) {
+			this.closedWhileBusy = true;
+		} else if (!this.submitted) {
+			this.finishCancelled();
 		}
 		super.onClose();
+	}
+
+	private setBusy(message: string): void {
+		this.busy = true;
+		this.input.disabled = true;
+		this.hideBusy = showModalBusy(this.modalEl, message);
+	}
+
+	private setIdle(): void {
+		this.busy = false;
+		this.input.disabled = false;
+		this.hideBusy?.();
+		this.hideBusy = null;
+		if (!this.closedWhileBusy) {
+			this.input.focus();
+			this.input.select();
+		}
+	}
+
+	private finishCancelled(): void {
+		if (this.submitted) return;
+		this.submitted = true;
+		this.resolve({
+			value: "",
+			submitKeybinding: "cancel",
+			cancelled: true,
+		});
 	}
 
 	static show(

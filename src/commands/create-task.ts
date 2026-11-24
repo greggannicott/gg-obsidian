@@ -66,43 +66,54 @@ async function displayTaskNameInput(
 			instruction: "create task",
 		},
 	];
-	const { value: name, submitKeybinding } = await TextInputModal.show(app, {
+	await TextInputModal.show(app, {
 		title: "Task Name",
 		placeholder: `Enter task name for project '${selectedProject.name}'...`,
 		keybindings,
-	});
-	const { templateName, answer } = await getTaskCreationDetails(app, name);
-	let task: Task | null = null;
-	try {
-		task = await createNewTask(
-		app,
-		name,
-		selectedProject,
-		templateName,
-		epic,
-		taskGroup,
-	);
-	} catch (error) {
-		console.error(error);
-		new Notice(`Failed to create task [${name}]: ${error?.message ?? error}`);
-		return;
-	}
-	if (task) {
-		await applyQuestionAnswerToTaskIfProvided(app, task.file, answer);
-		new Notice(`New task [${task.name}] created...`);
-		switch (submitKeybinding) {
-			case "enter":
-				app.workspace.getLeaf(false).openFile(task.file);
-				break;
-			case "shift-enter":
-				break;
-			default:
-				console.error(
-					`Unknown ConfirmationKeybinding type [${submitKeybinding}]`,
+		busyMessage: "Creating task…",
+		// Keep the Task Name modal open with a spinner until the ID has been
+		// minted and the note is ready, so the pause doesn't look like a failure.
+		onSubmit: async (name, submitKeybinding) => {
+			const { templateName, answer } = await getTaskCreationDetails(
+				app,
+				name,
+			);
+			let task: Task | null = null;
+			try {
+				task = await createNewTask(
+					app,
+					name,
+					selectedProject,
+					templateName,
+					epic,
+					taskGroup,
 				);
-				break;
-		}
-	}
+			} catch (error) {
+				console.error(error);
+				new Notice(
+					`Failed to create task [${name}]: ${error?.message ?? error}`,
+				);
+				return false;
+			}
+			if (!task) return false;
+
+			await applyQuestionAnswerToTaskIfProvided(app, task.file, answer);
+			new Notice(`New task [${task.name}] created...`);
+			switch (submitKeybinding) {
+				case "enter":
+					await app.workspace.getLeaf(false).openFile(task.file);
+					break;
+				case "shift-enter":
+					break;
+				default:
+					console.error(
+						`Unknown ConfirmationKeybinding type [${submitKeybinding}]`,
+					);
+					break;
+			}
+			return true;
+		},
+	});
 }
 
 async function applyQuestionAnswerToTaskIfProvided(

@@ -1,4 +1,5 @@
 import { App, prepareFuzzySearch, SuggestModal } from "obsidian";
+import { showModalBusy } from "./modal-busy";
 
 // A single key/value pair rendered beneath a suggestion's title. Omit `label`
 // to display just the value.
@@ -108,6 +109,10 @@ export type ConductorSelectorOptions<T> = {
 	// Max recent items to remember/show. Defaults to 10.
 	recentLimit?: number;
 	onSelect?: (item: T) => void;
+	// Single-select only: run this after a choice while the picker stays open
+	// behind a spinner. Return false to keep it open for another attempt.
+	onSelectAsync?: (item: T) => Promise<boolean>;
+	busyMessage?: string;
 };
 
 const RECENT_LIMIT_DEFAULT = 10;
@@ -192,6 +197,9 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 	private suggestionListEl: HTMLElement | null = null;
 	private readonly getRecentItemId: (item: T) => string;
 	private readonly recentLimit: number;
+	private busy = false;
+	private closedWhileBusy = false;
+	private hideBusy: (() => void) | null = null;
 
 	constructor(app: App, options: ConductorSelectorOptions<T>) {
 		super(app);
@@ -260,6 +268,9 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 	}
 
 	onClose(): void {
+		if (this.busy) {
+			this.closedWhileBusy = true;
+		}
 		if (this.handleToggleKeydown) {
 			this.inputEl.removeEventListener("keydown", this.handleToggleKeydown);
 			this.handleToggleKeydown = null;
@@ -267,7 +278,9 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 		// Obsidian closes the modal BEFORE invoking onChooseSuggestion, so a
 		// selection may still land after onClose. Defer the fallback resolve
 		// by one macrotask; choosing nulls the resolvers first and wins.
+		// An async selection owns the resolver until its work finishes.
 		setTimeout(() => {
+			if (this.busy) return;
 			this.resolveSelection?.(null);
 			this.resolveSelection = null;
 			this.resolveMultiSelection?.([]);
@@ -669,19 +682,92 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 
 	// Obsidian resolves Enter/clicks through selectSuggestion, which closes the
 	// modal BEFORE invoking onChooseSuggestion. Intercept group headers here so
-	// the selector stays open until an actual item is chosen.
+	// the selector stays open until an actual item is chosen. When an async
+	// handler is configured, run it here too so the picker stays open behind a
+	// spinner instead of closing before the work finishes.
 	selectSuggestion(
 		value: ConductorSelectorEntry<T>,
 		evt: MouseEvent | KeyboardEvent,
 	): void {
-		if (
-			value.kind === "header" &&
-			!(this.multiSelect && !(evt instanceof MouseEvent))
-		) {
-			evt.preventDefault();
+		if (value.kind === "header") {
+			if (!(this.multiSelect && !(evt instanceof MouseEvent))) {
+				evt.preventDefault();
+				return;
+			}
+			super.selectSuggestion(value, evt);
 			return;
 		}
+
+		if (!this.multiSelect && this.options.onSelectAsync) {
+			evt.preventDefault();
+			if (this.busy) return;
+			const item =
+				value.kind === "custom"
+					? this.options.getCustomItem?.(value.text)
+					: value.item;
+			if (item !== undefined) this.handleSingleSelection(item, evt);
+			return;
+		}
+
 		super.selectSuggestion(value, evt);
+	}
+
+	private setBusy(message: string): void {
+		this.busy = true;
+		this.inputEl.disabled = true;
+		this.hideBusy = showModalBusy(this.modalEl, message);
+	}
+
+	private setIdle(): void {
+		this.busy = false;
+		this.inputEl.disabled = false;
+		this.hideBusy?.();
+		this.hideBusy = null;
+		if (!this.closedWhileBusy) this.inputEl.focus();
+	}
+
+	private handleSingleSelection(
+		item: T,
+		evt: MouseEvent | KeyboardEvent,
+	): void {
+		if (this.busy) return;
+		evt.preventDefault();
+
+		if (this.options.recentKey) {
+			recordRecentSelection(
+				this.options.recentKey,
+				item,
+				this.getRecentItemId,
+				this.recentLimit,
+			);
+		}
+
+		const onSelectAsync = this.options.onSelectAsync;
+		if (!onSelectAsync) {
+			this.options.onSelect?.(item);
+			this.resolveSelection = null;
+			this.close();
+			return;
+		}
+
+		this.setBusy(this.options.busyMessage ?? "Working…");
+		const resolve = this.resolveSelection;
+		void onSelectAsync(item)
+			.then((ok) => {
+				if (ok !== false) {
+					this.resolveSelection = null;
+					resolve?.(item);
+					this.close();
+					return;
+				}
+				this.setIdle();
+				if (this.closedWhileBusy) resolve?.(null);
+			})
+			.catch((error) => {
+				console.error(error);
+				this.setIdle();
+				if (this.closedWhileBusy) resolve?.(null);
+			});
 	}
 
 	onChooseSuggestion(
@@ -700,20 +786,7 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 		if (item.kind === "custom") {
 			const getCustomItem = this.options.getCustomItem;
 			if (!getCustomItem) return;
-			this.resolveSelection = null;
-			const customItem = getCustomItem(item.text);
-			if (this.options.recentKey) {
-				recordRecentSelection(
-					this.options.recentKey,
-					customItem,
-					this.getRecentItemId,
-					this.recentLimit,
-				);
-			}
-			this.options.onSelect?.(customItem);
-			// SuggestModal doesn't close automatically unless we do it.
-			evt.preventDefault();
-			this.close();
+			this.handleSingleSelection(getCustomItem(item.text), evt);
 			return;
 		}
 
@@ -738,34 +811,11 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 			this.options.defaultItem !== undefined &&
 			item.item === this.firstRenderedItem()
 		) {
-			this.resolveSelection = null;
-			if (this.options.recentKey) {
-				recordRecentSelection(
-					this.options.recentKey,
-					this.options.defaultItem,
-					this.getRecentItemId,
-					this.recentLimit,
-				);
-			}
-			this.options.onSelect?.(this.options.defaultItem);
-			evt.preventDefault();
-			this.close();
+			this.handleSingleSelection(this.options.defaultItem, evt);
 			return;
 		}
 
-		this.resolveSelection = null;
-		if (this.options.recentKey) {
-			recordRecentSelection(
-				this.options.recentKey,
-				item.item,
-				this.getRecentItemId,
-				this.recentLimit,
-			);
-		}
-		this.options.onSelect?.(item.item);
-		// SuggestModal doesn't close automatically unless we do it.
-		evt.preventDefault();
-		this.close();
+		this.handleSingleSelection(item.item, evt);
 	}
 
 	private confirmMultiSelection(

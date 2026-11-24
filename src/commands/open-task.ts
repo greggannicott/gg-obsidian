@@ -26,23 +26,23 @@ const openTaskFile = async (app: App, task: Task): Promise<void> => {
 
 export const openTask = async (app: App): Promise<void> => {
 	const activeProject = getActiveProject(app);
-	const filters: TaskFilters = {
-		projectFilter: undefined,
-	};
-	if (activeProject) {
-		filters.projectFilter = {
-			projectIs: [activeProject.name],
-		};
+	if (!activeProject) {
+		await openTaskFromAnyProject(app);
+		return;
 	}
-	const task = await showTaskSelector(app, getTasks(app, filters), {
-		// Group by project when browsing tasks across projects (no active
-		// project). When focused on an active project, tasks all belong to that
-		// project, so project grouping is omitted entirely.
-		groupModes: activeProject
-			? ["status", "priority"]
-			: ["status", "project", "priority"],
-		omitProjectName: Boolean(activeProject),
-	});
+
+	const task = await showTaskSelector(
+		app,
+		getTasks(app, {
+			projectFilter: {
+				projectIs: [activeProject.name],
+			},
+		}),
+		{
+			groupModes: ["status", "priority"],
+			omitProjectName: true,
+		},
+	);
 	if (!task) return;
 	await openTaskFile(app, task);
 };

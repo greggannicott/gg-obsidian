@@ -16,6 +16,10 @@ import { STATUS_EMOJI } from "./tasks";
 // Display truncation length for project names in pickers.
 export const PROJECT_TITLE_MAX_LENGTH = 120;
 
+// Sentinel used by pickers that can search across every project.
+export const ANY_PROJECT = Symbol("Any Project");
+export type ProjectSelection = Project | typeof ANY_PROJECT;
+
 // The order non-ongoing status bands appear in, mirroring compareProjects.
 const STATUS_BAND_ORDER: ProjectStatus[] = [
 	ProjectStatus.InProgress,
@@ -124,4 +128,44 @@ export function showProjectSelector(
 		app,
 		projectSelectorOptions(app, projects, initialValue),
 	);
+}
+
+// Same project picker, with an unfiltered option pinned above the projects.
+export function showProjectSelectorWithAnyOption(
+	app: App,
+	projects: Project[],
+	initialValue?: string,
+): Promise<ProjectSelection | null> {
+	const options = projectSelectorOptions(app, projects, initialValue);
+	return ConductorSelectorModal.show<ProjectSelection>(app, {
+		...options,
+		leadingItems: [ANY_PROJECT],
+		getText: (selection, ctx) =>
+			selection === ANY_PROJECT
+				? "Any Project"
+				: options.getText(selection, ctx),
+		getSearchTexts: (selection) =>
+			selection === ANY_PROJECT
+				? ["Any Project", "All Projects"]
+				: (options.getSearchTexts?.(selection) ?? [options.getText(selection)]),
+		getMeta: (selection, ctx) =>
+			selection === ANY_PROJECT
+				? null
+				: (options.getMeta?.(selection, ctx) ?? null),
+		sortItems: (a, b) => {
+			if (a === ANY_PROJECT) return b === ANY_PROJECT ? 0 : -1;
+			if (b === ANY_PROJECT) return 1;
+			return options.sortItems?.(a, b) ?? 0;
+		},
+		groupings: options.groupings?.map((grouping) => ({
+			...grouping,
+			buildGroups: (selections) =>
+				grouping.buildGroups(
+					selections.filter(
+						(selection): selection is Project =>
+							selection !== ANY_PROJECT,
+					),
+				),
+		})),
+	});
 }

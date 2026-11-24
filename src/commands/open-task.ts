@@ -1,5 +1,8 @@
 import { App } from "obsidian";
-import { showProjectSelector } from "src/choose-project-modal";
+import {
+	ANY_PROJECT,
+	showProjectSelectorWithAnyOption,
+} from "src/choose-project-modal";
 import { showTaskSelector } from "src/choose-task.modal";
 import {
 	getProjects,
@@ -62,16 +65,24 @@ export const openInProgressTask = async (app: App): Promise<void> => {
 };
 
 export const openTaskFromAnyProject = async (app: App): Promise<void> => {
-	const project = await showProjectSelector(app, getProjects(app));
+	const project = await showProjectSelectorWithAnyOption(
+		app,
+		getProjects(app),
+	);
 	if (!project) return;
 
+	const taskFilters: TaskFilters = {};
+	if (project !== ANY_PROJECT) {
+		taskFilters.projectFilter = {
+			projectIs: [project.name],
+		};
+	}
 	const task = await showTaskSelector(
 		app,
-		getTasks(app, {
-			projectFilter: {
-				projectIs: [project.name],
-			},
-		}),
+		getTasks(app, taskFilters),
+		project === ANY_PROJECT
+			? { groupModes: ["status", "project", "priority"] }
+			: undefined,
 	);
 	if (!task) return;
 	await openTaskFile(app, task);

@@ -37,6 +37,9 @@ export type ConductorSelectorGrouping<T> = {
 
 export type ConductorSelectorOptions<T> = {
 	items: T[];
+	// Single-select items rendered ahead of the regular list, outside any
+	// grouping or Recent section. They still participate in search.
+	leadingItems?: T[];
 	placeholder?: string;
 	emptyText?: string;
 	// Pre-fills the search input on open.
@@ -170,16 +173,16 @@ type ConductorSelectorEntry<T> =
 	| {
 			kind: "header";
 			title: string;
-	  }
+		}
 	| {
 			kind: "item";
 			item: T;
-	  }
+		}
 	| {
 			// Text no item matches; only offered when getCustomItem is set.
 			kind: "custom";
 			text: string;
-	  };
+		};
 
 export class ConductorSelectorModal<T> extends SuggestModal<
 	ConductorSelectorEntry<T>
@@ -340,7 +343,14 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 
 	getSuggestions(query: string): ConductorSelectorEntry<T>[] {
 		const q = query.trim();
-		const allItems = [...(this.options.items ?? [])];
+		const leadingItems = this.multiSelect
+			? []
+			: [...(this.options.leadingItems ?? [])];
+		const leadingSet = new Set(leadingItems);
+		const allItems = [
+			...leadingItems,
+			...(this.options.items ?? []).filter((item) => !leadingSet.has(item)),
+		];
 		let items = allItems;
 		// Match relevance per item (lower tier is a stronger match), used to
 		// rank grouped results while searching.
@@ -380,6 +390,14 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 				.map((m) => m.item);
 		}
 
+		const visibleLeadingItems = leadingItems.filter((item) =>
+			items.includes(item),
+		);
+		const leadingEntries: ConductorSelectorEntry<T>[] = visibleLeadingItems.map(
+			(item) => ({ kind: "item" as const, item }),
+		);
+		items = items.filter((item) => !leadingSet.has(item));
+
 		const customEntry = this.getCustomEntry(q, allItems);
 
 		const grouping = this.getActiveGrouping();
@@ -387,19 +405,24 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 			if (q.length === 0 && this.options.sortItems) {
 				items.sort(this.options.sortItems);
 			}
-			const flatEntries: ConductorSelectorEntry<T>[] = items.map((item) => ({
+			const regularEntries: ConductorSelectorEntry<T>[] = items.map((item) => ({
 				kind: "item" as const,
 				item,
 			}));
+			const flatEntries: ConductorSelectorEntry<T>[] = [
+				...leadingEntries,
+				...regularEntries,
+			];
 			if (q.length === 0) {
 				const recentItems = this.getRecentItems();
 				if (recentItems.length > 0) {
 					const shown = new Set(recentItems.map((item) => this.getRecentItemId(item)));
 					const entries: ConductorSelectorEntry<T>[] = [
+						...leadingEntries,
 						{ kind: "header", title: "Recent" },
 						...recentItems.map((item) => ({ kind: "item" as const, item })),
 						{ kind: "header", title: "All" },
-						...flatEntries.filter(
+						...regularEntries.filter(
 							(entry) =>
 								entry.kind !== "item" ||
 								!shown.has(this.getRecentItemId(entry.item)),
@@ -474,6 +497,7 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 			const recentItems = this.getRecentItems();
 			if (recentItems.length > 0) {
 				const entries: ConductorSelectorEntry<T>[] = [
+					...leadingEntries,
 					{ kind: "header", title: "Recent" },
 					...recentItems.map((item) => ({ kind: "item" as const, item })),
 				];
@@ -489,7 +513,7 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 			}
 		}
 
-		const groupedResult: ConductorSelectorEntry<T>[] = [];
+		const groupedResult: ConductorSelectorEntry<T>[] = [...leadingEntries];
 		for (const group of groups) {
 			if (group.items.length === 0) continue;
 			groupedResult.push({ kind: "header", title: group.header });

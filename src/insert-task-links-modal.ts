@@ -9,7 +9,6 @@ import {
 	TASK_PRIORITIES,
 	PRIORITY_EMOJI,
 	STATUS_EMOJI,
-	SIZE_EMOJI,
 } from "./tasks";
 import { Context, getOutstandingProjects } from "./projects";
 import {
@@ -96,7 +95,6 @@ export function showOutstandingTasksSelector(
 			[
 				PRIORITY_EMOJI[task.priority as TaskPriority],
 				STATUS_EMOJI[task.status],
-				typeof task.size === "number" ? SIZE_EMOJI[task.size] : undefined,
 			].filter((badge): badge is string => Boolean(badge)),
 		sortItems: compareTasks,
 		groupings: [

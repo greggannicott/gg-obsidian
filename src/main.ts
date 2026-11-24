@@ -43,6 +43,7 @@ import { insertTaskLinks } from "./commands/insert-task-links";
 import { insertProjectLink } from "./commands/insert-project-link";
 import { insertInboxLink } from "./commands/insert-inbox-link";
 import { insertRecentlyCreatedNote } from "./commands/insert-recently-created-note";
+import { insertExperiment } from "./commands/insert-experiment";
 import { insertLinkByTopic } from "./commands/insert-link-by-topic";
 import { createJournalNoteForExperiment } from "./commands/create-journal-note-for-experiment";
 import { createJournalNoteForProblem } from "./commands/create-journal-note-for-problem";
@@ -688,6 +689,12 @@ export default class ConductorObsidian extends Plugin {
 			id: "insert-recently-created-note",
 			name: "Insert Recently Created Note",
 			callback: () => void insertRecentlyCreatedNote(this.app),
+		});
+
+		this.addCommand({
+			id: "insert-experiment",
+			name: "Insert Experiment",
+			callback: () => void insertExperiment(this.app),
 		});
 
 		this.addCommand({

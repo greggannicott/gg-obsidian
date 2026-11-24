@@ -105,6 +105,66 @@ const statusGrouping = {
 
 const experimentGroupings = [typeGrouping, statusGrouping];
 
+export type ExperimentChoice =
+	| { kind: "create" }
+	| { kind: "experiment"; experiment: Experiment };
+
+const CREATE_EXPERIMENT: ExperimentChoice = { kind: "create" };
+
+const isExperimentChoice = (
+	choice: ExperimentChoice,
+): choice is { kind: "experiment"; experiment: Experiment } =>
+	choice.kind === "experiment";
+
+export function showExperimentSelectorWithCreate(
+	app: App,
+): Promise<ExperimentChoice | null> {
+	const items: ExperimentChoice[] = getExperiments(app).map((experiment) => ({
+		kind: "experiment",
+		experiment,
+	}));
+	return ConductorSelectorModal.show<ExperimentChoice>(app, {
+		items,
+		leadingItems: [CREATE_EXPERIMENT],
+		placeholder: "Select an experiment or create a new one...",
+		getText: (choice) =>
+			choice.kind === "create"
+				? "Create New Experiment"
+				: choice.experiment.name,
+		getSearchTexts: (choice) =>
+			choice.kind === "create"
+				? ["create", "new", "experiment"]
+				: [choice.experiment.name],
+		getTitleRightMeta: (choice, ctx) => {
+			if (choice.kind === "create") return null;
+			const groupingId = ctx?.activeGrouping ?? "type";
+			return groupingId === "status"
+				? kindLabel[choice.experiment.kind]
+				: choice.experiment.status ?? null;
+		},
+		sortItems: (a, b) => {
+			if (!isExperimentChoice(a) || !isExperimentChoice(b)) return 0;
+			return compareExperiments(a.experiment, b.experiment);
+		},
+		groupings: experimentGroupings.map((grouping) => ({
+			...grouping,
+			buildGroups: (choices) =>
+				grouping
+					.buildGroups(
+						choices.filter(isExperimentChoice).map((choice) => choice.experiment),
+					)
+					.map((group) => ({
+						header: group.header,
+						items: group.items.map((experiment) => ({
+							kind: "experiment" as const,
+							experiment,
+						})),
+					})),
+		})),
+		initialGroupingId: "type",
+	});
+}
+
 export function showExperimentSelector(
 	app: App,
 	preselectedFiles: TFile[] = [],

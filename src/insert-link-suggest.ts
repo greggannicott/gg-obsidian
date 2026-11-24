@@ -15,6 +15,7 @@ import { insertProjectNote } from "./commands/insert-project-note";
 import { insertTaskLinks } from "./commands/insert-task-links";
 import { insertInboxLink } from "./commands/insert-inbox-link";
 import { insertRecentlyCreatedNote } from "./commands/insert-recently-created-note";
+import { insertExperiment } from "./commands/insert-experiment";
 
 type MenuEntry = {
 	label: string;
@@ -34,6 +35,7 @@ const MENU: MenuEntry[] = [
 		label: "Insert Recently Created Note",
 		run: (app) => insertRecentlyCreatedNote(app),
 	},
+	{ label: "Insert Experiment", run: (app) => insertExperiment(app) },
 	{ label: "Insert Task Links", run: (app) => insertTaskLinks(app) },
 	{ label: "Insert Project Link", run: (app) => insertProjectLink(app) },
 	{ label: "Insert Project Note", run: (app) => insertProjectNote(app) },

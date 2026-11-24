@@ -1,4 +1,9 @@
 import { App, TFile, parseFrontMatterStringArray } from "obsidian";
+import {
+	createFileFromTemplate,
+	sanitizeFileName,
+	vaultFileExists,
+} from "./utilities";
 
 export type ExperimentKind = "short" | "long" | "other";
 
@@ -9,6 +14,26 @@ export type Experiment = {
 	kind: ExperimentKind;
 	status?: string;
 };
+
+function getUniqueExperimentFileName(app: App, sanitizedName: string): string {
+	let candidate = sanitizedName;
+	let postfix = 2;
+	while (vaultFileExists(app, `${candidate}.md`)) {
+		candidate = `${sanitizedName} - ${postfix}`;
+		postfix++;
+	}
+	return candidate;
+}
+
+export async function createNewExperiment(
+	app: App,
+	name: string,
+): Promise<TFile | null> {
+	const sanitizedName = sanitizeFileName(name);
+	if (!sanitizedName) return null;
+	const fileName = getUniqueExperimentFileName(app, sanitizedName);
+	return createFileFromTemplate(app, `${fileName}.md`, "Short Experiment");
+}
 
 export function getExperiments(app: App): Experiment[] {
 	return app.vault

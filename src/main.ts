@@ -95,6 +95,7 @@ import {
 	openTask,
 	openInProgressTask,
 	openTaskFromAnyProject,
+	openRecentlyCreatedTask,
 	openTaskFromAnOutstandingProject,
 	openInProgressTaskFromInProgressProject,
 } from "./commands/open-task";
@@ -172,6 +173,12 @@ export default class ConductorObsidian extends Plugin {
 			id: "open-task-from-any-project",
 			name: "Open Task From Any Project",
 			callback: () => openTaskFromAnyProject(this.app),
+		});
+
+		this.addCommand({
+			id: "open-recently-created-task",
+			name: "Open Recently Created Task",
+			callback: () => openRecentlyCreatedTask(this.app),
 		});
 
 		this.addCommand({

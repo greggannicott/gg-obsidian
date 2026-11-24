@@ -1,9 +1,10 @@
-import { App } from "obsidian";
+import { App, Notice, moment } from "obsidian";
 import {
 	ANY_PROJECT,
 	showProjectSelectorWithAnyOption,
 } from "src/choose-project-modal";
-import { showTaskSelector } from "src/choose-task.modal";
+import { getTaskText, showTaskSelector } from "src/choose-task.modal";
+import type { ConductorSelectorGrouping } from "src/conductor-selector-modal";
 import {
 	getProjects,
 	getActiveProject,
@@ -84,6 +85,61 @@ export const openTaskFromAnyProject = async (app: App): Promise<void> => {
 			? { groupModes: ["status", "project", "priority"] }
 			: undefined,
 	);
+	if (!task) return;
+	await openTaskFile(app, task);
+};
+
+const RECENT_TASK_DAYS = 3;
+
+const creationDayGrouping: ConductorSelectorGrouping<Task> = {
+	id: "creation-day",
+	label: "Group by Day",
+	buildGroups: (tasks) => {
+		const buckets = new Map<string, Task[]>();
+		for (const task of tasks) {
+			const day = moment(task.file.stat.ctime).format("YYYY-MM-DD");
+			const bucket = buckets.get(day);
+			if (bucket) {
+				bucket.push(task);
+			} else {
+				buckets.set(day, [task]);
+			}
+		}
+		return [...buckets.entries()]
+			.sort(([a], [b]) => b.localeCompare(a))
+			.map(([day, items]) => {
+				const date = moment(day, "YYYY-MM-DD");
+				const header = date.isSame(moment(), "day")
+					? "Today"
+					: date.isSame(moment().subtract(1, "day"), "day")
+						? "Yesterday"
+						: date.format("dddd D MMMM");
+				return { header, items };
+			});
+	},
+};
+
+export const openRecentlyCreatedTask = async (app: App): Promise<void> => {
+	const cutoff = moment().subtract(RECENT_TASK_DAYS - 1, "days").startOf("day");
+	const tasks = getTasks(app)
+		.filter((task): task is Task => task !== null)
+		.filter((task) => moment(task.file.stat.ctime).isSameOrAfter(cutoff));
+	if (tasks.length === 0) {
+		new Notice(`No tasks created in the last ${RECENT_TASK_DAYS} days`);
+		return;
+	}
+
+	const task = await showTaskSelector(app, tasks, {
+		placeholder: "Select a recently created task...",
+		groupings: [creationDayGrouping],
+		omitProjectName: true,
+		sortItems: (a, b) =>
+			b.file.stat.ctime - a.file.stat.ctime ||
+			getTaskText(a).localeCompare(getTaskText(b)),
+		getTitlePrefix: (task) => moment(task.file.stat.ctime).format("HH:mm"),
+		getTitleRightMeta: (task) =>
+			task.parents?.map((parent) => parent.name).join(", ") || null,
+	});
 	if (!task) return;
 	await openTaskFile(app, task);
 };

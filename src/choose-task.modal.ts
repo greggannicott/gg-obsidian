@@ -17,9 +17,17 @@ export type ShowTaskSelectorOptions = {
 	initialGroupMode?: GroupMode;
 	// Which groupings are registered and in what order; the first is the default.
 	groupModes?: GroupMode[];
+	// Caller-defined groupings, used instead of the standard group modes.
+	groupings?: ConductorSelectorGrouping<Task>[];
 	omitProjectName?: boolean;
 	// Placeholder text for the selector input.
 	placeholder?: string;
+	// Override the default alphabetical ordering.
+	sortItems?: (a: Task, b: Task) => number;
+	// Optional fixed-width chip before the task title (e.g. creation time).
+	getTitlePrefix?: (task: Task) => string | null;
+	// Optional muted value right-aligned on the task title line.
+	getTitleRightMeta?: (task: Task) => string | null;
 };
 
 // Order in which status buckets are displayed; To Do is kept last so
@@ -135,7 +143,8 @@ export function showTaskSelector(
 		(options?.initialGroupMode === "status"
 			? ["status", "priority"]
 			: ["priority", "status"]);
-	const groupings = modes.map((mode) => groupingById[mode]);
+	const groupings =
+		options?.groupings ?? modes.map((mode) => groupingById[mode]);
 
 	return ConductorSelectorModal.show<Task>(app, {
 		items: validTasks,
@@ -145,7 +154,9 @@ export function showTaskSelector(
 				? task.name
 				: getTaskText(task),
 		getSearchText: getTaskText,
-		sortItems: byName,
+		getTitlePrefix: options?.getTitlePrefix,
+		getTitleRightMeta: options?.getTitleRightMeta,
+		sortItems: options?.sortItems ?? byName,
 		groupings,
 	});
 }

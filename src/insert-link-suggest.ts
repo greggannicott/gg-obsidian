@@ -17,29 +17,39 @@ import { insertInboxLink } from "./commands/insert-inbox-link";
 import { insertRecentlyCreatedNote } from "./commands/insert-recently-created-note";
 import { insertExperiment } from "./commands/insert-experiment";
 
-type MenuEntry = {
+type MenuAction = {
+	kind: "action";
 	label: string;
 	run: (app: App) => Promise<boolean>;
 };
 
+type MenuEntry = MenuAction | { kind: "divider" };
+
+const DIVIDER: MenuEntry = { kind: "divider" };
+
 // The entries shown by the `:::` trigger. Hard-coded (not derived from
-// registered commands) so the labels and ordering stay stable.
+// registered commands) so the labels, dividers and ordering stay stable.
 const MENU: MenuEntry[] = [
-	{ label: "Insert Link by Category", run: (app) => insertLinkByCategory(app) },
-	{ label: "Insert Link by Topic", run: (app) => insertLinkByTopic(app) },
+	{ kind: "action", label: "Insert Link by Category", run: (app) => insertLinkByCategory(app) },
+	{ kind: "action", label: "Insert Link by Topic", run: (app) => insertLinkByTopic(app) },
+	DIVIDER,
 	{
-		label: "Insert Journal Link",
-		run: (app) => insertLinkByCategory(app, { preselectCategory: "Journal" }),
-	},
-	{
+		kind: "action",
 		label: "Insert Recently Created Note",
 		run: (app) => insertRecentlyCreatedNote(app),
 	},
-	{ label: "Insert Experiment", run: (app) => insertExperiment(app) },
-	{ label: "Insert Task Links", run: (app) => insertTaskLinks(app) },
-	{ label: "Insert Project Link", run: (app) => insertProjectLink(app) },
-	{ label: "Insert Project Note", run: (app) => insertProjectNote(app) },
-	{ label: "Insert Inbox Link", run: (app) => insertInboxLink(app) },
+	{ kind: "action", label: "Insert Inbox Link", run: (app) => insertInboxLink(app) },
+	{
+		kind: "action",
+		label: "Insert Journal Link",
+		run: (app) => insertLinkByCategory(app, { preselectCategory: "Journal" }),
+	},
+	DIVIDER,
+	{ kind: "action", label: "Insert Experiment", run: (app) => insertExperiment(app) },
+	DIVIDER,
+	{ kind: "action", label: "Insert Project", run: (app) => insertProjectLink(app) },
+	{ kind: "action", label: "Insert Tasks", run: (app) => insertTaskLinks(app) },
+	{ kind: "action", label: "Insert Project Note", run: (app) => insertProjectNote(app) },
 ];
 
 function isInCodeBlockOrFrontmatter(
@@ -96,16 +106,27 @@ class ThreeColonsSuggest extends EditorSuggest<MenuEntry> {
 	getSuggestions(context: EditorSuggestContext): MenuEntry[] {
 		const q = context.query.toLowerCase();
 		if (q === "") return [...MENU];
-		return MENU.filter((entry) =>
-			entry.label.toLowerCase().includes(q),
+		return MENU.filter(
+			(entry): entry is MenuAction =>
+				entry.kind === "action" && entry.label.toLowerCase().includes(q),
 		);
 	}
 
 	renderSuggestion(value: MenuEntry, el: HTMLElement): void {
+		if (value.kind === "divider") {
+			el.addClass("conductor-inline-selector-divider");
+			el.setAttr("aria-disabled", "true");
+			el.createEl("hr", { cls: "conductor-inline-selector-divider-line" });
+			return;
+		}
 		el.setText(value.label);
 	}
 
 	selectSuggestion(value: MenuEntry, evt: MouseEvent | KeyboardEvent): void {
+		if (value.kind === "divider") {
+			evt.preventDefault();
+			return;
+		}
 		const ctx = this.context;
 		if (!ctx) {
 			this.close();
@@ -123,7 +144,7 @@ class ThreeColonsSuggest extends EditorSuggest<MenuEntry> {
 	}
 
 	private async runEntry(
-		entry: MenuEntry,
+		entry: MenuAction,
 		editor: Editor,
 		start: { line: number; ch: number },
 		end: { line: number; ch: number },

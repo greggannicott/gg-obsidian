@@ -669,13 +669,13 @@ export default class ConductorObsidian extends Plugin {
 
 		this.addCommand({
 			id: "insert-task-links",
-			name: "Insert Task Links",
+			name: "Insert Tasks",
 			callback: () => void insertTaskLinks(this.app),
 		});
 
 		this.addCommand({
 			id: "insert-project-link",
-			name: "Insert Project Link",
+			name: "Insert Project",
 			callback: () => void insertProjectLink(this.app),
 		});
 

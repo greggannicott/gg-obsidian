@@ -57,6 +57,7 @@ export const insertListLines = (
 	editor: EditorLike,
 	lines: string[],
 ): void => {
+	if (lines.length === 0) return;
 	const cursorLine = editor.getCursor().line;
 	const line = editor.getLine(cursorLine);
 	const bareListMatch = line.match(/^(\s*)(?:- \[ \]|[-*+])\s*$/);
@@ -71,6 +72,11 @@ export const insertListLines = (
 			{ line: cursorLine, ch: 0 },
 			{ line: cursorLine, ch: line.length },
 		);
+		const lastInserted = `${indent}${lines[lines.length - 1] ?? ""}`;
+		editor.setCursor({
+			line: cursorLine + lines.length - 1,
+			ch: lastInserted.length,
+		});
 	} else if (checkboxWithContentMatch) {
 		const indent = checkboxWithContentMatch[1];
 		const insertion = lines.map((l) => `${indent}${l}`).join("\n");
@@ -78,16 +84,31 @@ export const insertListLines = (
 			line: cursorLine,
 			ch: line.length,
 		});
+		const lastInserted = `${indent}${lines[lines.length - 1] ?? ""}`;
+		editor.setCursor({
+			line: cursorLine + lines.length,
+			ch: lastInserted.length,
+		});
 	} else if (emptyLineMatch) {
 		editor.replaceRange(
 			lines.join("\n"),
 			{ line: cursorLine, ch: 0 },
 			{ line: cursorLine, ch: line.length },
 		);
+		const lastInserted = lines[lines.length - 1] ?? "";
+		editor.setCursor({
+			line: cursorLine + lines.length - 1,
+			ch: lastInserted.length,
+		});
 	} else {
 		editor.replaceRange("\n" + lines.join("\n"), {
 			line: cursorLine,
 			ch: line.length,
+		});
+		const lastInserted = lines[lines.length - 1] ?? "";
+		editor.setCursor({
+			line: cursorLine + lines.length,
+			ch: lastInserted.length,
 		});
 	}
 };
@@ -108,9 +129,24 @@ export const replaceSelectionRangeOrInsert = (
 			return false;
 		}
 		editor.replaceRange(text, range.from, range.to);
+		const textLines = text.split("\n");
+		const endLine = range.from.line + textLines.length - 1;
+		const endCh =
+			textLines.length === 1
+				? range.from.ch + textLines[0].length
+				: textLines[textLines.length - 1].length;
+		editor.setCursor({ line: endLine, ch: endCh });
 		return true;
 	}
-	editor.replaceRange(text, editor.getCursor());
+	const from = editor.getCursor();
+	editor.replaceRange(text, from);
+	const textLines = text.split("\n");
+	const endLine = from.line + textLines.length - 1;
+	const endCh =
+		textLines.length === 1
+			? from.ch + textLines[0].length
+			: textLines[textLines.length - 1].length;
+	editor.setCursor({ line: endLine, ch: endCh });
 	return true;
 };
 

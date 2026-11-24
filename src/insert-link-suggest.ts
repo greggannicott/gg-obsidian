@@ -131,6 +131,7 @@ class ThreeColonsSuggest extends EditorSuggest<MenuEntry> {
 			// ignore
 		}
 
+		const beforeValue = editor.getValue();
 		const inserted = await entry.run(this.app);
 		if (!inserted) {
 			// Restore the document byte-for-byte and leave the cursor after it.
@@ -139,6 +140,14 @@ class ThreeColonsSuggest extends EditorSuggest<MenuEntry> {
 				line: start.line,
 				ch: start.ch + original.length,
 			});
+		} else {
+			// Leave the cursor after whatever the command inserted, so typing
+			// continues past the new link rather than before it.
+			const insertedLength = editor.getValue().length - beforeValue.length;
+			if (insertedLength >= 0) {
+				const endOffset = editor.posToOffset(start as EditorPosition) + insertedLength;
+				editor.setCursor(editor.offsetToPos(endOffset));
+			}
 		}
 	}
 }

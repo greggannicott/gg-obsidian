@@ -1,4 +1,10 @@
-import { App, Editor, Notice, TFile } from "obsidian";
+import {
+	App,
+	Editor,
+	Notice,
+	TFile,
+	parseFrontMatterStringArray,
+} from "obsidian";
 import { showEpicSelectorSingle } from "src/choose-epic-modal";
 import { showProjectSelector } from "src/choose-project-modal";
 import { getEpicForActiveFile } from "src/epics";
@@ -35,6 +41,45 @@ const PROJECT_NOTE_TYPES = [
 ] as const;
 
 type ProjectNoteType = (typeof PROJECT_NOTE_TYPES)[number];
+
+const PROJECT_NOTE_TYPE_TAG = "project-note/type";
+const PROJECT_NOTE_TYPE_GROUP_FIELD = "project-note-type-group";
+const GROUP_ORDER = ["General", "Outcome", "Reference"];
+const GROUP_LABELS: Record<string, string> = { Outcome: "Outcomes" };
+
+// Only used when a type note is missing or has no group set. The vault's type
+// notes are the source of truth, as they are for the project-note bases.
+const FALLBACK_GROUPS: Record<ProjectNoteType, string> = {
+	"General Project Note": "General",
+	"Agent Response": "Reference",
+	Analysis: "Outcome",
+	"Brainstorming Notes": "Outcome",
+	"Code Sample": "Reference",
+	"Design Note": "Outcome",
+	"Log Sample": "Reference",
+};
+
+function getProjectNoteTypeGroup(
+	app: App,
+	noteType: ProjectNoteType,
+): string {
+	for (const file of app.vault.getMarkdownFiles()) {
+		if (file.basename !== noteType || file.path.startsWith("_templates/")) {
+			continue;
+		}
+		const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
+		const tags = parseFrontMatterStringArray(frontmatter, "tags") ?? [];
+		if (
+			!tags.some((tag) => tag.replace(/^#/, "") === PROJECT_NOTE_TYPE_TAG)
+		) {
+			continue;
+		}
+		const group = frontmatter?.[PROJECT_NOTE_TYPE_GROUP_FIELD];
+		if (typeof group === "string" && group.trim()) return group.trim();
+		break;
+	}
+	return FALLBACK_GROUPS[noteType];
+}
 
 type NoteContentContext = {
 	language: string | null;
@@ -232,25 +277,31 @@ function chooseProjectNoteType(app: App): Promise<ProjectNoteType | null> {
 				id: "kind",
 				label: "By kind",
 				buildGroups: (items) => {
-					const general = items.filter(
-						(t) => t === "General Project Note",
-					);
-					const outcomes = items.filter(
-						(t) => t === "Design Note" || t === "Analysis" || t === "Brainstorming Notes",
-					);
-					const reference = items.filter(
-						(t) =>
-							t === "Code Sample" ||
-							t === "Log Sample" ||
-							t === "Agent Response",
-					);
+					const buckets = new Map<string, ProjectNoteType[]>();
+					for (const item of items) {
+						const group = getProjectNoteTypeGroup(app, item);
+						if (!buckets.has(group)) buckets.set(group, []);
+						buckets.get(group)!.push(item);
+					}
+
 					const result: { header: string; items: ProjectNoteType[] }[] = [];
-					if (general.length)
-						result.push({ header: "General", items: general });
-					if (outcomes.length)
-						result.push({ header: "Outcomes", items: outcomes });
-					if (reference.length)
-						result.push({ header: "Reference", items: reference });
+					for (const group of GROUP_ORDER) {
+						const bucket = buckets.get(group);
+						if (!bucket?.length) continue;
+						result.push({
+							header: GROUP_LABELS[group] ?? group,
+							items: bucket.sort((a, b) => a.localeCompare(b)),
+						});
+						buckets.delete(group);
+					}
+					for (const [group, bucket] of [...buckets.entries()].sort(
+						([a], [b]) => a.localeCompare(b),
+					)) {
+						result.push({
+							header: GROUP_LABELS[group] ?? group,
+							items: bucket.sort((a, b) => a.localeCompare(b)),
+						});
+					}
 					return result;
 				},
 			},

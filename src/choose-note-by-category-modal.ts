@@ -12,6 +12,7 @@ import { showExperimentSelectorSingle } from "./choose-experiment-modal";
 import { showEpicSelectorSingle } from "./choose-epic-modal";
 import { showProjectNoteSelector } from "./choose-project-note-modal";
 import { getProjects } from "./projects";
+import { NoteAssociations } from "./note-associations";
 import { getAllCategories, getFilesWithCategory, getNoteTitle } from "./utilities";
 
 // A note chosen from a category, paired with the text its picker displayed it
@@ -44,7 +45,11 @@ async function pickWithLabel<T>(
 // link to itself. The dedicated pickers list their whole category.
 export async function selectNoteByCategory(
 	app: App,
-	options: { currentFile?: TFile | null; preselectCategory?: string } = {},
+	options: {
+		currentFile?: TFile | null;
+		preselectCategory?: string;
+		associations?: NoteAssociations | null;
+	} = {},
 ): Promise<SelectedNote | null> {
 	const categories = getAllCategories(app);
 	if (categories.length === 0) {
@@ -92,6 +97,7 @@ export async function selectNoteByCategory(
 		case "Project Note": {
 			const projectNote = await showProjectNoteSelector(app, {
 				includeCreate: false,
+				associations: options.associations,
 			});
 			if (!projectNote || projectNote.kind !== "note") return null;
 			return {

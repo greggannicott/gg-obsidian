@@ -1,6 +1,7 @@
 import { App, Editor, MarkdownView, Notice } from "obsidian";
 import { insertListLines } from "src/editor-utils";
 import { showOutstandingTasksSelector } from "src/insert-task-links-modal";
+import type { NoteAssociations } from "src/note-associations";
 import { getAssociationsForFile } from "src/note-associations";
 import { Task } from "src/tasks";
 
@@ -11,15 +12,17 @@ export const insertTaskLinks = async (app: App): Promise<boolean> => {
 		return false;
 	}
 
+	const activeAssociations = activeView.file
+		? getAssociationsForFile(app, activeView.file)
+		: null;
+
 	const tasks = await showOutstandingTasksSelector(app, {
-		associations: activeView.file
-			? getAssociationsForFile(app, activeView.file)
-			: null,
+		associations: activeAssociations,
 	});
 	if (tasks.length === 0) return false;
 
 	if (isInListContext(activeView.editor)) {
-		insertTaskLinkLines(activeView.editor, tasks);
+		insertTaskLinkLines(activeView.editor, tasks, activeAssociations);
 	} else {
 		const inline = tasks.map((t) => `[[${t.name}]]`).join(", ");
 		activeView.editor.replaceSelection(inline);
@@ -42,10 +45,23 @@ const isInListContext = (editor: Editor): boolean => {
 	);
 };
 
-const insertTaskLinkLines = (editor: Editor, tasks: Task[]): void => {
+const insertTaskLinkLines = (
+	editor: Editor,
+	tasks: Task[],
+	activeAssociations: NoteAssociations | null,
+): void => {
+	const activeProjectPaths = new Set(
+		(activeAssociations?.projects ?? [])
+			.map((project) => project?.path)
+			.filter((path): path is string => Boolean(path)),
+	);
 	const taskLinkLines = tasks.map((t) => {
 		const projectName = t.parents?.[0]?.name;
-		if (projectName) {
+		const isInActiveProject =
+			t.parents?.some((parent) =>
+				activeProjectPaths.has(parent?.path ?? ""),
+			) ?? false;
+		if (projectName && !isInActiveProject) {
 			return `- [[${projectName}]] > [[${t.name}]]`;
 		}
 		return `- [[${t.name}]]`;

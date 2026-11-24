@@ -12,6 +12,11 @@ import {
 	SIZE_EMOJI,
 } from "./tasks";
 import { Context, getOutstandingProjects } from "./projects";
+import {
+	getAssociationsForFile,
+	matchesAssociations,
+	NoteAssociations,
+} from "./note-associations";
 
 const contextOrder: Record<string, number> = {
 	[Context.Work]: 0,
@@ -34,7 +39,10 @@ const compareTasks = (a: Task, b: Task): number => {
 	return a.name.localeCompare(b.name);
 };
 
-export function showOutstandingTasksSelector(app: App): Promise<Task[]> {
+export function showOutstandingTasksSelector(
+	app: App,
+	options: { associations?: NoteAssociations | null } = {},
+): Promise<Task[]> {
 	const allTasks = getTasks(app, {
 		statusFilter: {
 			statusIs: [TaskStatus.ToDo, TaskStatus.InProgress],
@@ -59,10 +67,29 @@ export function showOutstandingTasksSelector(app: App): Promise<Task[]> {
 		return parentName && outstandingProjectNames.has(parentName);
 	});
 
+	// From a task or project note, narrow to work tied to the same project or
+	// epic. With no associations (or no active note), keep the full list.
+	const associations =
+		options.associations &&
+		(options.associations.projects.length ||
+			options.associations.epics.length)
+			? options.associations
+			: null;
+	const tasks = associations
+		? outstandingTasks.filter((task) =>
+				matchesAssociations(
+					associations,
+					getAssociationsForFile(app, task.file),
+				),
+		  )
+		: outstandingTasks;
+
 	return ConductorSelectorModal.showMulti<Task>(app, {
-		items: outstandingTasks,
+		items: tasks,
 		placeholder: "Filter tasks by name or project...",
-		emptyText: "No outstanding tasks",
+		emptyText: associations
+			? "No outstanding tasks from this project or epic"
+			: "No outstanding tasks",
 		getText: (task) => task.name,
 		getSearchText: (task) => `${projectNameForTask(task)} ${task.name}`,
 		getBadges: (task) =>

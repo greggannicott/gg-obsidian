@@ -1,6 +1,7 @@
 import { App, Editor, MarkdownView, Notice } from "obsidian";
 import { insertListLines } from "src/editor-utils";
 import { showOutstandingTasksSelector } from "src/insert-task-links-modal";
+import { getAssociationsForFile } from "src/note-associations";
 import { Task } from "src/tasks";
 
 export const insertTaskLinks = async (app: App): Promise<boolean> => {
@@ -10,7 +11,11 @@ export const insertTaskLinks = async (app: App): Promise<boolean> => {
 		return false;
 	}
 
-	const tasks = await showOutstandingTasksSelector(app);
+	const tasks = await showOutstandingTasksSelector(app, {
+		associations: activeView.file
+			? getAssociationsForFile(app, activeView.file)
+			: null,
+	});
 	if (tasks.length === 0) return false;
 
 	if (isInListContext(activeView.editor)) {

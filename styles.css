@@ -162,6 +162,25 @@ If your plugin does not need CSS, delete this file.
 	min-width: 0;
 }
 
+/* Fixed-width prefix chip (e.g. a note's creation time). Keeping it out of the
+   title text makes every title start at the same horizontal position. */
+.conductor-suggest-title-prefix {
+	flex: 0 0 calc(5ch + 12px);
+	width: calc(5ch + 12px);
+	box-sizing: border-box;
+	padding: 1px 6px;
+	border-radius: var(--radius-s);
+	background-color: var(--background-secondary);
+	color: var(--text-muted);
+	font-size: var(--font-ui-smaller);
+	font-variant-numeric: tabular-nums;
+	text-align: center;
+}
+
+.conductor-suggest-selected .conductor-suggest-title-prefix {
+	color: var(--text-on-accent);
+}
+
 /* Single meta value rendered right-aligned on the title line (e.g. rating
    stars), pushed to the far right of the row. */
 .conductor-suggest-title-meta {

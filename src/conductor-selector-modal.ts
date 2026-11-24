@@ -46,6 +46,8 @@ export type ConductorSelectorOptions<T> = {
 	initialValue?: string;
 	defaultItem?: T;
 	getText: (item: T, ctx?: { activeGrouping: string | null }) => string;
+	// Optional fixed-width chip rendered before the title (e.g. a creation time).
+	getTitlePrefix?: (item: T) => string | null;
 	// Text the query is matched against; defaults to getText.
 	getSearchText?: (item: T) => string;
 	// Maximum length used to truncate the displayed title with an ellipsis.
@@ -647,6 +649,13 @@ export class ConductorSelectorModal<T> extends SuggestModal<
 				? truncateText(text, this.options.titleMaxLength)
 				: text;
 		};
+		const titlePrefix = this.options.getTitlePrefix?.(item.item);
+		if (titlePrefix) {
+			titleRow.createSpan({
+				cls: "conductor-suggest-title-prefix",
+				text: titlePrefix,
+			});
+		}
 		titleRow.createSpan({
 			cls: "conductor-suggest-title",
 			text: displayText(item.item),

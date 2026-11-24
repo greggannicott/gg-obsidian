@@ -14,6 +14,7 @@ import { insertProjectLink } from "./commands/insert-project-link";
 import { insertProjectNote } from "./commands/insert-project-note";
 import { insertTaskLinks } from "./commands/insert-task-links";
 import { insertInboxLink } from "./commands/insert-inbox-link";
+import { insertRecentlyCreatedNote } from "./commands/insert-recently-created-note";
 
 type MenuEntry = {
 	label: string;
@@ -28,6 +29,10 @@ const MENU: MenuEntry[] = [
 	{
 		label: "Insert Journal Link",
 		run: (app) => insertLinkByCategory(app, { preselectCategory: "Journal" }),
+	},
+	{
+		label: "Insert Recently Created Note",
+		run: (app) => insertRecentlyCreatedNote(app),
 	},
 	{ label: "Insert Task Links", run: (app) => insertTaskLinks(app) },
 	{ label: "Insert Project Link", run: (app) => insertProjectLink(app) },

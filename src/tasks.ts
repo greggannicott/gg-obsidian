@@ -1,4 +1,4 @@
-import { App, Notice, TFile, moment } from "obsidian";
+import { App, Notice, TFile, moment, parseFrontMatterStringArray } from "obsidian";
 import { mintId } from "./bff";
 import type { Epic } from "./epics";
 import { Context, getProjectFromLink, Project } from "./projects";
@@ -23,6 +23,7 @@ export type Task = {
 	size?: number;
 	branch: string;
 	type: TaskType[];
+	taskGroups?: string[];
 };
 
 export enum TaskStatus {
@@ -129,6 +130,7 @@ export async function createNewTask(
 	selectedProject: Project,
 	templateName = "Task",
 	epic: Epic | null = null,
+	taskGroup: string | null = null,
 ): Promise<Task | null> {
 	const uniqueFileName = getUniqueTaskFileName(
 		app,
@@ -159,6 +161,7 @@ export async function createNewTask(
 			// The epic is optional, so the template's empty value is left alone
 			// when none was chosen.
 			if (epic) fm["epic"] = [`[[${epic.name}]]`];
+			if (taskGroup) fm["task-groups"] = [taskGroup];
 		});
 		const newTask = getTask(app, filePath);
 		return newTask;
@@ -199,11 +202,15 @@ export function getTask(app: App, filePath: string): Task | null {
 	if (file) {
 		const name = file.basename;
 		const frontmatter = app.metadataCache.getFileCache(file)?.frontmatter;
-		const parents =
-			frontmatter &&
-			frontmatter["parents"]?.map((link: string) => {
-				return getProjectFromLink(app, link, filePath);
-			});
+	const parents =
+		frontmatter &&
+		frontmatter["parents"]?.map((link: string) => {
+			return getProjectFromLink(app, link, filePath);
+		});
+	const taskGroups =
+		parseFrontMatterStringArray(frontmatter, "task-groups") ??
+		parseFrontMatterStringArray(frontmatter, "task-group") ??
+		undefined;
 		const status = frontmatter && frontmatter["status"];
 		const jiraId = frontmatter && frontmatter["jira-id"];
 		const impeded =
@@ -227,6 +234,7 @@ export function getTask(app: App, filePath: string): Task | null {
 			size,
 			branch,
 			type: types,
+			taskGroups,
 		};
 	} else {
 		console.error(`Unable to create task from file [${filePath}]`);
@@ -352,6 +360,52 @@ export function getActiveTask(app: App): Task | null {
 		}
 	}
 	return activeTask;
+}
+
+export function getTaskGroups(app: App): string[] {
+	const tasks = getTasks(app, {
+		statusFilter: undefined,
+	});
+	const seen = new Set<string>();
+	const groups: string[] = [];
+	for (const task of tasks) {
+		if (!task) continue;
+		for (const group of task.taskGroups ?? []) {
+			const value = group?.trim();
+			if (!value) continue;
+			const key = value.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			groups.push(value);
+		}
+	}
+	return groups.sort((a, b) => a.localeCompare(b));
+}
+
+export function getTaskGroupsForProject(app: App, projectName: string): string[] {
+	const tasks = getTasks(app, {
+		projectFilter: { projectIs: [projectName] },
+		statusFilter: undefined,
+	});
+	const seen = new Set<string>();
+	const groups: string[] = [];
+	for (const task of tasks) {
+		if (!task) continue;
+		for (const group of task.taskGroups ?? []) {
+			const value = group?.trim();
+			if (!value) continue;
+			const key = value.toLowerCase();
+			if (seen.has(key)) continue;
+			seen.add(key);
+			groups.push(value);
+		}
+	}
+	return groups.sort((a, b) => a.localeCompare(b));
+}
+
+export function getTaskGroupForActiveFile(app: App): string | null {
+	const activeTask = getActiveTask(app);
+	return activeTask?.taskGroups?.[0]?.trim() || null;
 }
 
 export function isQuestionTaskName(taskName: string): boolean {

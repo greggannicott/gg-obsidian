@@ -13,6 +13,7 @@ export type Project = {
 	context: Context;
 	file: TFile;
 	parents: Project[];
+	id: string;
 	jiraId: string;
 	branch: string;
 	ongoing: boolean;
@@ -241,6 +242,7 @@ export function getProjectFromFile(app: App, f: TFile): Project {
 		frontmatter["parents"]?.map((link: string) => {
 			return getProjectFromLink(app, link, f.path);
 		});
+	const id = frontmatter && frontmatter["id"];
 	const jiraId = frontmatter && frontmatter["jira-id"];
 	const branch = frontmatter && frontmatter["branch"];
 	const ongoing =
@@ -254,6 +256,7 @@ export function getProjectFromFile(app: App, f: TFile): Project {
 		context,
 		file: f,
 		parents,
+		id,
 		jiraId,
 		branch,
 		ongoing,
@@ -282,6 +285,7 @@ export async function updateProject(app: App, project: Project): Promise<void> {
 	if (file) {
 		await app.fileManager.processFrontMatter(file, (fm) => {
 			fm["status"] = project.status;
+			fm["id"] = project.id;
 			fm["jira-id"] = project.jiraId;
 			fm["branch"] = project.branch;
 			fm["ongoing"] = project.ongoing;

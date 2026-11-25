@@ -117,7 +117,7 @@ export async function createProjectNote(
 		preview: (value) => {
 			const name = formatProjectNoteName(
 				sanitizeFileName(value),
-				project.projectId,
+				project.id,
 			);
 			return name
 				? `Saved as: ${name}.md`
@@ -145,7 +145,7 @@ export async function createProjectNote(
 		app,
 		project.context,
 		title,
-		project.projectId,
+		project.id,
 	);
 	const templateVars = buildTemplateVars({
 		project,

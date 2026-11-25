@@ -121,7 +121,9 @@ export async function createProjectNote(
 			);
 			return name
 				? `Saved as: ${name}.md`
-				: "Saved as: Project Note - .md";
+				: project.id
+					? `Saved as: Project Note - ${project.id} - .md`
+					: "Saved as: Project Note - .md";
 		},
 	});
 	if (titleResult.cancelled) return null;

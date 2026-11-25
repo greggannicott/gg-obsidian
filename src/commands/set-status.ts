@@ -1,4 +1,11 @@
-import { App, Notice, TFile, moment } from "obsidian";
+import {
+	App,
+	MarkdownView,
+	Notice,
+	TFile,
+	WorkspaceLeaf,
+	moment,
+} from "obsidian";
 import {
 	getTask,
 	getActiveTask,
@@ -82,11 +89,36 @@ export const setTaskStatusForFiles = async (
 	) {
 		const activeProject = getActiveProject(app);
 		if (activeProject) {
-			await app.workspace
-				.getLeaf(false)
-				.openFile(activeProject.file);
+			const targetLeaf = app.workspace.getLeaf(false);
+			if (!isFileOpenInAnotherTab(app, activeProject.file, targetLeaf)) {
+				await targetLeaf.openFile(activeProject.file);
+			}
 		}
 	}
+};
+
+// The project may already be visible in another tab. In that case opening it
+// in the target leaf would replace the note the user is working on, so leave
+// the current note alone.
+const isFileOpenInAnotherTab = (
+	app: App,
+	file: TFile,
+	targetLeaf: WorkspaceLeaf,
+): boolean => {
+	let found = false;
+	app.workspace.iterateAllLeaves((leaf) => {
+		if (leaf === targetLeaf || found) return;
+		if (getOpenFilePath(leaf) === file.path) found = true;
+	});
+	return found;
+};
+
+const getOpenFilePath = (leaf: WorkspaceLeaf): string | null => {
+	const viewFile = (leaf.view as MarkdownView).file;
+	if (viewFile) return viewFile.path;
+
+	const stateFile = leaf.getViewState().state?.file;
+	return typeof stateFile === "string" ? stateFile : null;
 };
 
 export const setActiveTaskStatus = (

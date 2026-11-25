@@ -1,11 +1,5 @@
-import {
-	App,
-	MarkdownView,
-	Notice,
-	TFile,
-	WorkspaceLeaf,
-	moment,
-} from "obsidian";
+import type { WorkspaceLeaf } from "obsidian";
+import { App, MarkdownView, Notice, TFile, moment } from "obsidian";
 import {
 	getTask,
 	getActiveTask,
@@ -88,26 +82,22 @@ export const setTaskStatusForFiles = async (
 		updatedCount > 0
 	) {
 		const activeProject = getActiveProject(app);
-		if (activeProject) {
-			const targetLeaf = app.workspace.getLeaf(false);
-			if (!isFileOpenInAnotherTab(app, activeProject.file, targetLeaf)) {
-				await targetLeaf.openFile(activeProject.file);
-			}
+		if (
+			activeProject &&
+			!isFileOpenInAnyTab(app, activeProject.file)
+		) {
+			await app.workspace.getLeaf(false).openFile(activeProject.file);
 		}
 	}
 };
 
-// The project may already be visible in another tab. In that case opening it
-// in the target leaf would replace the note the user is working on, so leave
-// the current note alone.
-const isFileOpenInAnotherTab = (
-	app: App,
-	file: TFile,
-	targetLeaf: WorkspaceLeaf,
-): boolean => {
+// If the project is already open anywhere, do not open another instance and
+// do not change focus. Getting a leaf is deliberately delayed until we know
+// one is actually needed, because getLeaf(false) can itself change focus.
+const isFileOpenInAnyTab = (app: App, file: TFile): boolean => {
 	let found = false;
 	app.workspace.iterateAllLeaves((leaf) => {
-		if (leaf === targetLeaf || found) return;
+		if (found) return;
 		if (getOpenFilePath(leaf) === file.path) found = true;
 	});
 	return found;

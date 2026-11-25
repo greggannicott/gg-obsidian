@@ -57,7 +57,7 @@ export async function mintId(): Promise<string> {
 	}
 
 	const id = (body as { id?: unknown } | null)?.id;
-	if (typeof id !== "string" || !/^gg-\d{5,}$/.test(id)) {
+	if (typeof id !== "string" || !/^GG-\d{5,}$/i.test(id)) {
 		throw new Error(`BFF returned an invalid ID: ${String(id)}`);
 	}
 	return id;

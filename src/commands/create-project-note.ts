@@ -115,8 +115,13 @@ export async function createProjectNote(
 		placeholder: `Enter a title for '${project.name}'...`,
 		value: selectedText || undefined,
 		preview: (value) => {
-			const name = formatProjectNoteName(sanitizeFileName(value));
-			return name ? `Saved as: ${name}.md` : "Saved as: Project Note - .md";
+			const name = formatProjectNoteName(
+				sanitizeFileName(value),
+				project.projectId,
+			);
+			return name
+				? `Saved as: ${name}.md`
+				: "Saved as: Project Note - .md";
 		},
 	});
 	if (titleResult.cancelled) return null;
@@ -136,7 +141,12 @@ export async function createProjectNote(
 		: null;
 	if (requiresContent && noteContentContext === null) return null;
 
-	const filePath = getUniqueProjectNotePath(app, project.context, title);
+	const filePath = getUniqueProjectNotePath(
+		app,
+		project.context,
+		title,
+		project.projectId,
+	);
 	const templateVars = buildTemplateVars({
 		project,
 		noteType,
@@ -313,9 +323,10 @@ function getUniqueProjectNotePath(
 	app: App,
 	context: Context,
 	title: string,
+	projectId?: string,
 ): string {
 	const directory = `Projects/${context}`;
-	const baseName = formatProjectNoteName(title);
+	const baseName = formatProjectNoteName(title, projectId);
 	let suffix = 1;
 	let path = `${directory}/${baseName}.md`;
 

@@ -39,6 +39,7 @@ import {
 import { setActiveTaskPriority } from "./commands/set-priority";
 import { setActiveTaskSize } from "./commands/set-size";
 import { assignEpicToActiveTask } from "./commands/assign-epic-to-task";
+import { assignTaskGroupToActiveTask } from "./commands/assign-task-group-to-task";
 import { touchTask } from "./commands/touch-task";
 import { insertTaskLinks } from "./commands/insert-task-links";
 import { insertProjectLink } from "./commands/insert-project-link";
@@ -394,6 +395,13 @@ export default class ConductorObsidian extends Plugin {
 			"Assign Epic to Task",
 			() => isActiveFileTask(this.app),
 			() => void assignEpicToActiveTask(this.app),
+		);
+
+		this.addCheckedCommand(
+			"assign-task-group-to-task",
+			"Assign Task Group to Task",
+			() => isActiveFileTask(this.app),
+			() => void assignTaskGroupToActiveTask(this.app),
 		);
 
 		for (const tagName of ["inbox", "reflected", "review", "requires-thought"]) {

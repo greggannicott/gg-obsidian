@@ -45,6 +45,7 @@ import {
 import { setTaskStatus } from "../commands/set-status";
 import { setTaskPriority } from "../commands/set-priority";
 import { setTaskSize } from "../commands/set-size";
+import { assignEpicToTask } from "../commands/assign-epic-to-task";
 import {
 	toggleForFocusing,
 	isForFocusing,
@@ -132,6 +133,13 @@ export function createFileMenuHandler(app: App, linearBaseUrl?: string) {
 						});
 					});
 				}
+			});
+
+			menu.addItem((item) => {
+				item.setTitle("Assign Epic");
+				item.onClick(() => {
+					void assignEpicToTask(app, file);
+				});
 			});
 
 			menu.addItem((item) => {

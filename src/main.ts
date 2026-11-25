@@ -38,6 +38,7 @@ import {
 } from "./commands/set-status";
 import { setActiveTaskPriority } from "./commands/set-priority";
 import { setActiveTaskSize } from "./commands/set-size";
+import { assignEpicToActiveTask } from "./commands/assign-epic-to-task";
 import { touchTask } from "./commands/touch-task";
 import { insertTaskLinks } from "./commands/insert-task-links";
 import { insertProjectLink } from "./commands/insert-project-link";
@@ -386,6 +387,13 @@ export default class ConductorObsidian extends Plugin {
 			"Set Task Size to '🟣 3 - Weekend project'",
 			() => isActiveFileTask(this.app),
 			() => setActiveTaskSize(this.app, 3),
+		);
+
+		this.addCheckedCommand(
+			"assign-epic-to-task",
+			"Assign Epic to Task",
+			() => isActiveFileTask(this.app),
+			() => void assignEpicToActiveTask(this.app),
 		);
 
 		for (const tagName of ["inbox", "reflected", "review", "requires-thought"]) {
